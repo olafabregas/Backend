@@ -14,4 +14,7 @@ public class CourseResponse {
     String description;
     Boolean isArchived;
     Long createdById;
+    Integer instructorCount;
+    Integer enrollmentCount;
+    Integer assignmentCount;
 }

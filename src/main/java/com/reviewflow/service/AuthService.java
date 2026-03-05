@@ -1,5 +1,18 @@
 package com.reviewflow.service;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
+import java.util.HexFormat;
+
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import com.reviewflow.exception.InactiveUserException;
+import com.reviewflow.exception.TooManyRequestsException;
 import com.reviewflow.model.dto.response.AuthUserResponse;
 import com.reviewflow.model.entity.RefreshToken;
 import com.reviewflow.model.entity.User;
@@ -7,18 +20,8 @@ import com.reviewflow.repository.RefreshTokenRepository;
 import com.reviewflow.repository.UserRepository;
 import com.reviewflow.security.JwtService;
 import com.reviewflow.security.ReviewFlowUserDetails;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.time.Instant;
-import java.util.HexFormat;
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -28,18 +31,37 @@ public class AuthService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
+    private final AuditService auditService;
+    private final RateLimiterService rateLimiterService;
 
     @Transactional
-    public LoginResult login(String email, String password) {
+    public LoginResult login(String email, String password, String ipAddress) {
+        // Check rate limiting
+        if (rateLimiterService.isRateLimited(ipAddress)) {
+            long retryAfter = rateLimiterService.getRetryAfterSeconds(ipAddress);
+            throw new TooManyRequestsException("Too many login attempts. Please try again later.", retryAfter);
+        }
+        
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
+                .orElseThrow(() -> {
+                    rateLimiterService.recordFailedLogin(ipAddress);
+                    auditService.log(null, "USER_LOGIN_FAILED", "User", null, "Email: " + email, ipAddress);
+                    return new BadCredentialsException("Invalid credentials");
+                });
         if (!Boolean.TRUE.equals(user.getIsActive())) {
+            rateLimiterService.recordFailedLogin(ipAddress);
+            auditService.log(user.getId(), "USER_LOGIN_FAILED", "User", user.getId(), "Account deactivated", ipAddress);
             throw new InactiveUserException("Account is deactivated");
         }
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            rateLimiterService.recordFailedLogin(ipAddress);
+            auditService.log(user.getId(), "USER_LOGIN_FAILED", "User", user.getId(), "Invalid password", ipAddress);
             throw new BadCredentialsException("Invalid credentials");
         }
+        
+        // Successful login - clear rate limit for this IP
+        rateLimiterService.clearFailedAttempts(ipAddress);
+        
         ReviewFlowUserDetails details = new ReviewFlowUserDetails(user);
         String accessToken = jwtService.generateAccessToken(details);
         String refreshTokenValue = jwtService.generateRefreshToken();
@@ -52,6 +74,8 @@ public class AuthService {
                 .createdAt(Instant.now())
                 .build();
         refreshTokenRepository.save(refreshToken);
+
+        auditService.log(user.getId(), "USER_LOGIN", "User", user.getId(), "Login successful", ipAddress);
 
         AuthUserResponse userResponse = AuthUserResponse.builder()
                 .userId(user.getId())
@@ -91,7 +115,16 @@ public class AuthService {
         String hash = hashRefreshToken(refreshTokenValue);
         RefreshToken token = refreshTokenRepository.findByTokenHash(hash)
                 .orElseThrow(() -> new BadCredentialsException("Invalid refresh token"));
-        if (Boolean.TRUE.equals(token.getRevoked()) || token.getExpiresAt().isBefore(Instant.now())) {
+        
+        // Detect token reuse attack: if token is already revoked, revoke ALL tokens for this user
+        if (Boolean.TRUE.equals(token.getRevoked())) {
+            User user = token.getUser();
+            refreshTokenRepository.revokeAllForUser(user.getId());
+            auditService.log(user.getId(), "TOKEN_REUSE_ATTACK", "User", user.getId(), "Refresh token reuse detected - all tokens revoked", null);
+            throw new BadCredentialsException("Invalid refresh token");
+        }
+        
+        if (token.getExpiresAt().isBefore(Instant.now())) {
             throw new BadCredentialsException("Invalid refresh token");
         }
         User user = token.getUser();
@@ -124,6 +157,7 @@ public class AuthService {
         refreshTokenRepository.findByTokenHash(hash).ifPresent(t -> {
             t.setRevoked(true);
             refreshTokenRepository.save(t);
+            auditService.log(t.getUser().getId(), "USER_LOGOUT", "User", t.getUser().getId(), "Logout successful", null);
         });
     }
 }

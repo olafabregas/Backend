@@ -1,5 +1,6 @@
 package com.reviewflow.controller;
 
+import com.reviewflow.model.dto.response.ApiResponse;
 import com.reviewflow.model.entity.AuditLog;
 import com.reviewflow.service.AuditService;
 import lombok.RequiredArgsConstructor;
@@ -23,7 +24,7 @@ public class AdminAuditController {
     private final AuditService auditService;
 
     @GetMapping
-    public ResponseEntity<Page<AuditLog>> list(
+    public ResponseEntity<ApiResponse<Page<AuditLog>>> list(
             @RequestParam(required = false) Long actorId,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String targetType,
@@ -31,6 +32,6 @@ public class AdminAuditController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant dateTo,
             @PageableDefault(size = 20) Pageable pageable) {
         Page<AuditLog> page = auditService.findFiltered(actorId, action, targetType, dateFrom, dateTo, pageable);
-        return ResponseEntity.ok(page);
+        return ResponseEntity.ok(ApiResponse.ok(page));
     }
 }

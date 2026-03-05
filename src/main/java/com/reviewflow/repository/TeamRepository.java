@@ -14,4 +14,8 @@ public interface TeamRepository extends JpaRepository<Team, Long> {
 
     @Query("SELECT t FROM Team t JOIN t.members m WHERE t.assignment.id = :assignmentId AND m.user.id = :userId")
     Optional<Team> findByAssignmentIdAndMembersUserId(@Param("assignmentId") Long assignmentId, @Param("userId") Long userId);
+    
+    boolean existsByAssignment_IdAndName(Long assignmentId, String name);
+    
+    boolean existsByAssignment_IdAndNameAndIdNot(Long assignmentId, String name, Long id);
 }

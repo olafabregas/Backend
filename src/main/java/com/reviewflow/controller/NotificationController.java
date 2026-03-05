@@ -1,5 +1,7 @@
 package com.reviewflow.controller;
 
+import com.reviewflow.model.dto.response.ApiResponse;
+import com.reviewflow.model.dto.response.NotificationResponse;
 import com.reviewflow.model.entity.Notification;
 import com.reviewflow.security.ReviewFlowUserDetails;
 import com.reviewflow.service.NotificationService;
@@ -21,28 +23,58 @@ public class NotificationController {
     private final NotificationService notificationService;
 
     @GetMapping
-    public ResponseEntity<Page<Notification>> list(
+    public ResponseEntity<ApiResponse<Page<NotificationResponse>>> list(
             @AuthenticationPrincipal ReviewFlowUserDetails user,
-            @PageableDefault(size = 20) Pageable pageable) {
-        Page<Notification> page = notificationService.getNotifications(user.getUserId(), pageable);
-        return ResponseEntity.ok(page);
+            @RequestParam(required = false) Boolean unreadOnly,
+            @PageableDefault(size = 20, sort = "createdAt", direction = org.springframework.data.domain.Sort.Direction.DESC) Pageable pageable) {
+        Page<NotificationResponse> page = notificationService
+                .getNotifications(user.getUserId(), unreadOnly, pageable)
+                .map(this::toResponse);
+        return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
     @GetMapping("/unread-count")
-    public ResponseEntity<Map<String, Long>> unreadCount(@AuthenticationPrincipal ReviewFlowUserDetails user) {
+    public ResponseEntity<ApiResponse<Map<String, Long>>> unreadCount(
+            @AuthenticationPrincipal ReviewFlowUserDetails user) {
         long count = notificationService.getUnreadCount(user.getUserId());
-        return ResponseEntity.ok(Map.of("count", count));
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("count", count)));
     }
 
     @PatchMapping("/{id}/read")
-    public ResponseEntity<Map<String, String>> markRead(@PathVariable Long id) {
-        notificationService.markAsRead(id);
-        return ResponseEntity.ok(Map.of("message", "Marked as read"));
+    public ResponseEntity<ApiResponse<Map<String, String>>> markRead(
+            @PathVariable Long id,
+            @AuthenticationPrincipal ReviewFlowUserDetails user) {
+        notificationService.markAsRead(id, user.getUserId());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Marked as read")));
     }
 
     @PatchMapping("/read-all")
-    public ResponseEntity<Map<String, String>> markAllRead(@AuthenticationPrincipal ReviewFlowUserDetails user) {
-        notificationService.markAllAsRead(user.getUserId());
-        return ResponseEntity.ok(Map.of("message", "All marked as read"));
+    public ResponseEntity<ApiResponse<Map<String, Object>>> markAllRead(
+            @AuthenticationPrincipal ReviewFlowUserDetails user) {
+        int updatedCount = notificationService.markAllAsRead(user.getUserId());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of(
+                "message", "All notifications marked as read",
+                "updatedCount", updatedCount
+        )));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Map<String, String>>> delete(
+            @PathVariable Long id,
+            @AuthenticationPrincipal ReviewFlowUserDetails user) {
+        notificationService.deleteNotification(id, user.getUserId());
+        return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Notification deleted")));
+    }
+
+    private NotificationResponse toResponse(Notification n) {
+        return NotificationResponse.builder()
+                .id(n.getId())
+                .type(n.getType())
+                .title(n.getTitle())
+                .message(n.getMessage())
+                .isRead(n.getIsRead())
+                .actionUrl(n.getActionUrl())
+                .createdAt(n.getCreatedAt())
+                .build();
     }
 }

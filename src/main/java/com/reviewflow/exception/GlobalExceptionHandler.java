@@ -1,5 +1,8 @@
 package com.reviewflow.exception;
 
+import java.time.Instant;
+import java.util.stream.Collectors;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -8,9 +11,6 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-
-import java.time.Instant;
-import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleBadCredentials(BadCredentialsException ex) {
         ErrorResponse body = ErrorResponse.builder()
                 .error(ErrorResponse.ErrorDetail.builder()
-                        .code("UNAUTHORIZED")
+                        .code("INVALID_CREDENTIALS")
                         .message("Invalid credentials")
                         .build())
                 .timestamp(Instant.now())
@@ -46,8 +46,8 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorResponse> handleInactiveUser(InactiveUserException ex) {
         ErrorResponse body = ErrorResponse.builder()
                 .error(ErrorResponse.ErrorDetail.builder()
-                        .code("FORBIDDEN")
-                        .message(ex.getMessage())
+                        .code("ACCOUNT_DEACTIVATED")
+                        .message("Your account has been deactivated. Contact admin.")
                         .build())
                 .timestamp(Instant.now())
                 .build();
@@ -80,6 +80,80 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code("FORBIDDEN")
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
+    @ExceptionHandler(TooManyRequestsException.class)
+    public ResponseEntity<ErrorResponse> handleTooManyRequests(TooManyRequestsException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code("TOO_MANY_REQUESTS")
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(429)
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
+                .body(body);
+    }
+
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResource(DuplicateResourceException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code(ex.getCode())
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(InvalidRoleException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRole(InvalidRoleException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code(ex.getCode())
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleValidationException(ValidationException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code(ex.getCode())
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(BusinessRuleException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessRule(BusinessRuleException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code(ex.getCode())
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(com.reviewflow.exception.AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleCustomAccessDenied(com.reviewflow.exception.AccessDeniedException ex) {
         ErrorResponse body = ErrorResponse.builder()
                 .error(ErrorResponse.ErrorDetail.builder()
                         .code("FORBIDDEN")

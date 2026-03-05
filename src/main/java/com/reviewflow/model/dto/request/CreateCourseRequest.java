@@ -12,6 +12,8 @@ public class CreateCourseRequest {
     @NotBlank
     private String name;
 
+    @NotBlank
     private String term;
+    
     private String description;
 }

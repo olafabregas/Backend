@@ -12,6 +12,8 @@ public class AssignmentResponse {
 
     Long id;
     Long courseId;
+    String courseCode;
+    String courseName;
     String title;
     String description;
     Instant dueAt;
@@ -19,6 +21,11 @@ public class AssignmentResponse {
     Boolean isPublished;
     Instant teamLockAt;
     List<RubricCriterionResponse> rubricCriteria;
+    
+    // Student-specific fields (null for instructor/admin views)
+    String teamStatus; // HAS_TEAM | NO_TEAM | LOCKED
+    String submissionStatus; // NOT_SUBMITTED | SUBMITTED | LATE
+    Boolean isLate;
 
     @Value
     @Builder

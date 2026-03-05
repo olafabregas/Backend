@@ -1,5 +1,7 @@
 package com.reviewflow.service;
 
+import com.reviewflow.exception.AccessDeniedException;
+import com.reviewflow.exception.ResourceNotFoundException;
 import com.reviewflow.model.entity.Notification;
 import com.reviewflow.model.entity.User;
 import com.reviewflow.repository.NotificationRepository;
@@ -35,27 +37,45 @@ public class NotificationService {
     }
 
     @Transactional
-    public void markAsRead(Long id) {
-        notificationRepository.findById(id).ifPresent(n -> {
-            n.setIsRead(true);
-            notificationRepository.save(n);
-        });
+    public void markAsRead(Long id, Long userId) {
+        Notification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification", id));
+        
+        // Check if notification belongs to the user
+        if (!notification.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("Not authorized to access this notification");
+        }
+        
+        notification.setIsRead(true);
+        notificationRepository.save(notification);
     }
 
     @Transactional
-    public void markAllAsRead(Long userId) {
-        notificationRepository.findByUser_IdOrderByCreatedAtDesc(userId, Pageable.unpaged())
-                .getContent().forEach(n -> {
-                    n.setIsRead(true);
-                    notificationRepository.save(n);
-                });
+    public int markAllAsRead(Long userId) {
+        return notificationRepository.markAllReadByUserId(userId);
+    }
+
+    @Transactional
+    public void deleteNotification(Long id, Long userId) {
+        Notification notification = notificationRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Notification", id));
+        
+        // Check if notification belongs to the user
+        if (!notification.getUser().getId().equals(userId)) {
+            throw new AccessDeniedException("Not authorized to delete this notification");
+        }
+        
+        notificationRepository.deleteById(id);
     }
 
     public long getUnreadCount(Long userId) {
         return notificationRepository.countByUser_IdAndIsReadFalse(userId);
     }
 
-    public Page<Notification> getNotifications(Long userId, Pageable pageable) {
+    public Page<Notification> getNotifications(Long userId, Boolean unreadOnly, Pageable pageable) {
+        if (Boolean.TRUE.equals(unreadOnly)) {
+            return notificationRepository.findByUser_IdAndIsReadFalseOrderByCreatedAtDesc(userId, pageable);
+        }
         return notificationRepository.findByUser_IdOrderByCreatedAtDesc(userId, pageable);
     }
 }

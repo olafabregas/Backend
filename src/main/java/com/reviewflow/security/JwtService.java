@@ -3,9 +3,8 @@ package com.reviewflow.security;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.MalformedJwtException;
 import io.jsonwebtoken.security.Keys;
-import io.jsonwebtoken.security.SignatureException;
+import lombok.Getter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
@@ -18,7 +17,9 @@ import java.util.Date;
 public class JwtService {
 
     private final SecretKey secretKey;
+    @Getter
     private final long accessExpirationMs;
+    @Getter
     private final long refreshExpirationMs;
 
     public JwtService(
@@ -83,14 +84,6 @@ public class JwtService {
         } catch (ExpiredJwtException e) {
             return true;
         }
-    }
-
-    public long getAccessExpirationMs() {
-        return accessExpirationMs;
-    }
-
-    public long getRefreshExpirationMs() {
-        return refreshExpirationMs;
     }
 
     private Claims extractClaims(String token) {

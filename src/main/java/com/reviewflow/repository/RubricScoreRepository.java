@@ -11,4 +11,6 @@ public interface RubricScoreRepository extends JpaRepository<RubricScore, Long> 
     List<RubricScore> findByEvaluation_Id(Long evaluationId);
 
     Optional<RubricScore> findByEvaluation_IdAndCriterion_Id(Long evaluationId, Long criterionId);
+
+    boolean existsByCriterion_Id(Long criterionId);
 }

@@ -17,4 +17,13 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     @Query("SELECT COALESCE(SUM(s.fileSizeBytes), 0) FROM Submission s")
     Long sumFileSizeBytes();
+
+    List<Submission> findByTeam_IdOrderByVersionNumberDesc(Long teamId);
+
+    List<Submission> findByAssignment_Id(Long assignmentId);
+
+    List<Submission> findByAssignment_IdOrderByTeam_IdAscVersionNumberDesc(Long assignmentId);
+
+    @Query("SELECT s FROM Submission s WHERE s.team.id IN (SELECT tm.team.id FROM TeamMember tm WHERE tm.user.id = :userId) ORDER BY s.uploadedAt DESC")
+    org.springframework.data.domain.Page<Submission> findByTeamMemberUserId(@Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
 }
