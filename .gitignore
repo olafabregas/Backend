@@ -40,5 +40,5 @@ build/
 !.env.example
 application-local.properties
 
-/controller
+/Controller-Specs
 
