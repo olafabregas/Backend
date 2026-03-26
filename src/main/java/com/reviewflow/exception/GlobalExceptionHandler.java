@@ -392,6 +392,42 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(body);
     }
 
+    @ExceptionHandler(AnnouncementNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleAnnouncementNotFound(AnnouncementNotFoundException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code("ANNOUNCEMENT_NOT_FOUND")
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(AlreadyPublishedException.class)
+    public ResponseEntity<ErrorResponse> handleAlreadyPublished(AlreadyPublishedException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code("ALREADY_PUBLISHED")
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(CourseNotOwnedException.class)
+    public ResponseEntity<ErrorResponse> handleCourseNotOwned(CourseNotOwnedException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code("COURSE_NOT_OWNED")
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         ErrorResponse body = ErrorResponse.builder()

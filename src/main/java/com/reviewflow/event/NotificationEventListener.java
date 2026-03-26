@@ -1,6 +1,7 @@
 package com.reviewflow.event;
 
 import com.reviewflow.config.CacheConfig;
+import com.reviewflow.event.email.AnnouncementPostedEmailEvent;
 import com.reviewflow.event.email.AssignmentDueSoonEmailEvent;
 import com.reviewflow.event.email.EvaluationPublishedEmailEvent;
 import com.reviewflow.event.email.SubmissionReceivedEmailEvent;
@@ -8,8 +9,10 @@ import com.reviewflow.event.email.TeamInviteReceivedEmailEvent;
 import com.reviewflow.model.dto.response.NotificationDto;
 import com.reviewflow.model.entity.Notification;
 import com.reviewflow.model.entity.User;
+import com.reviewflow.model.entity.UserRole;
 import com.reviewflow.model.enums.NotificationType;
 import com.reviewflow.model.enums.SubmissionType;
+import com.reviewflow.repository.CourseEnrollmentRepository;
 import com.reviewflow.repository.NotificationRepository;
 import com.reviewflow.repository.UserRepository;
 import com.reviewflow.service.HashidService;
@@ -34,7 +37,53 @@ public class NotificationEventListener {
     private final CacheManager cacheManager;
     private final HashidService hashidService;
     private final UserRepository userRepository;
+    private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final ApplicationEventPublisher eventPublisher;
+
+    // ── ANNOUNCEMENT PUBLISHED ────────────────────────────────────
+    @Async("notificationExecutor")
+    @EventListener
+    public void onAnnouncementPublished(AnnouncementPublishedEvent event) {
+        List<Long> recipientUserIds;
+
+        if ("COURSE".equals(event.getTarget())) {
+            // Course announcement — send to all enrolled students in this course
+            recipientUserIds = courseEnrollmentRepository.findUserIdsByCourse_ID(event.getCourseId());
+        } else {
+            // Platform announcement — send based on recipient_type
+            if ("ALL_STUDENTS".equals(event.getRecipientType())) {
+                recipientUserIds = userRepository.findAllIdsByRole(UserRole.STUDENT);
+            } else if ("ALL_INSTRUCTORS".equals(event.getRecipientType())) {
+                recipientUserIds = userRepository.findAllIdsByRole(UserRole.INSTRUCTOR);
+            } else {
+                // ALL_USERS
+                recipientUserIds = userRepository.findAllIds();
+            }
+        }
+
+        // Create and push notifications, fire email events
+        String message = event.getTitle();
+        for (Long recipientUserId : recipientUserIds) {
+            saveAndPush(
+                    recipientUserId,
+                    NotificationType.ANNOUNCEMENT,
+                    "Announcement",
+                    message,
+                    "/announcements/{id}",
+                    event.getAnnouncementId()
+            );
+
+            userRepository.findById(recipientUserId).ifPresent(user
+                    -> eventPublisher.publishEvent(new AnnouncementPostedEmailEvent(
+                            user.getEmail(),
+                            fullNameOrEmail(user),
+                            event.getTitle(),
+                            event.getBody(),
+                            event.getCreatedByName(),
+                            "" // courseCode — empty string for platform announcements, not available in event
+                    )));
+        }
+    }
 
     // ── TEAM INVITE ───────────────────────────────────────────────
     @Async("notificationExecutor")

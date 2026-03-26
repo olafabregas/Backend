@@ -21,9 +21,9 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
     void deleteByCourse_IdAndUser_Id(Long courseId, Long userId);
 
     long countByCourse_Id(Long courseId);
-    
+
     long countByUser_Id(Long userId);
-    
+
     @Query("""
         SELECT e.user.id FROM CourseEnrollment e
         JOIN Assignment a ON a.id = :assignmentId AND a.course.id = e.course.id
@@ -35,4 +35,7 @@ public interface CourseEnrollmentRepository extends JpaRepository<CourseEnrollme
     List<Long> findEnrolledStudentsWithoutSubmission(
             @Param("assignmentId") Long assignmentId
     );
+
+    @Query("SELECT e.user.id FROM CourseEnrollment e WHERE e.course.id = :courseId")
+    List<Long> findUserIdsByCourse_ID(@Param("courseId") Long courseId);
 }
