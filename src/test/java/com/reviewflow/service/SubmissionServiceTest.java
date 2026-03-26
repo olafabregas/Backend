@@ -99,7 +99,7 @@ class SubmissionServiceTest {
     private SubmissionService submissionService;
 
     @BeforeEach
-        void setUp() throws Exception {
+    void setUp() throws Exception {
         ReflectionTestUtils.setField(submissionService, "submissionMaxFileSizeBytes", 104857600L);
         lenient().when(rateLimiterService.isUploadBlockRateLimited(anyString())).thenReturn(false);
         lenient().doNothing().when(fileSecurityValidator).validateFromPath(any(), anyLong(), anyString());
@@ -400,11 +400,11 @@ class SubmissionServiceTest {
         assertEquals(SubmissionType.TEAM, event.submissionType());
         assertEquals(teamId, event.teamId());
         assertEquals(null, event.studentId());
-                assertEquals(777L, event.submissionId());
+        assertEquals(777L, event.submissionId());
     }
 
     @Test
-        void upload_whenValidatorThrowsRuntime_recordsSecurityAndRateLimit() throws Exception {
+    void upload_whenValidatorThrowsRuntime_recordsSecurityAndRateLimit() throws Exception {
         Long assignmentId = 10L;
         Long uploaderId = 77L;
         doThrow(new ValidationException("bad", "FILE_VALIDATION_ERROR"))

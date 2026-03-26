@@ -47,16 +47,16 @@ class EmailTemplateCatalogTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "welcome",
-            "evaluation-published",
-            "submission-received",
-            "team-invite-received",
-            "team-invite-responded",
-            "assignment-due-soon",
-            "announcement-posted",
-            "extension-request-received",
-            "extension-decision",
-            "account-reactivated"
+        "welcome",
+        "evaluation-published",
+        "submission-received",
+        "team-invite-received",
+        "team-invite-responded",
+        "assignment-due-soon",
+        "announcement-posted",
+        "extension-request-received",
+        "extension-decision",
+        "account-reactivated"
     })
     void renderHtml_templatesExistAndRender(String templateName) {
         String rendered = templateService.renderHtml(templateName, baseVariables());
@@ -67,16 +67,16 @@ class EmailTemplateCatalogTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            "welcome",
-            "evaluation-published",
-            "submission-received",
-            "team-invite-received",
-            "team-invite-responded",
-            "assignment-due-soon",
-            "announcement-posted",
-            "extension-request-received",
-            "extension-decision",
-            "account-reactivated"
+        "welcome",
+        "evaluation-published",
+        "submission-received",
+        "team-invite-received",
+        "team-invite-responded",
+        "assignment-due-soon",
+        "announcement-posted",
+        "extension-request-received",
+        "extension-decision",
+        "account-reactivated"
     })
     void renderText_templatesExistAndRender(String templateName) {
         String rendered = templateService.renderText(templateName, baseVariables());

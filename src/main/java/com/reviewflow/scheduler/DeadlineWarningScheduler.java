@@ -20,10 +20,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class DeadlineWarningScheduler {
 
-    private final AssignmentRepository      assignmentRepository;
+    private final AssignmentRepository assignmentRepository;
     private final CourseEnrollmentRepository enrollmentRepository;
-    private final CourseRepository          courseRepository;
-    private final ApplicationEventPublisher  eventPublisher;
+    private final CourseRepository courseRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     // Runs every hour on the hour
     @Scheduled(cron = "0 0 * * * *")
@@ -35,15 +35,15 @@ public class DeadlineWarningScheduler {
 
     private void checkDeadlines(int hoursUntilDue) {
         Instant windowStart = Instant.now().plus(hoursUntilDue - 1, ChronoUnit.HOURS);
-        Instant windowEnd   = Instant.now().plus(hoursUntilDue,     ChronoUnit.HOURS);
+        Instant windowEnd = Instant.now().plus(hoursUntilDue, ChronoUnit.HOURS);
 
-        List<Long> assignmentIds =
-                assignmentRepository.findPublishedDueBetween(windowStart, windowEnd);
+        List<Long> assignmentIds
+                = assignmentRepository.findPublishedDueBetween(windowStart, windowEnd);
 
         for (Long assignmentId : assignmentIds) {
             // Only notify students who have NOT yet submitted
-            List<Long> studentsWithoutSubmission =
-                    enrollmentRepository.findEnrolledStudentsWithoutSubmission(assignmentId);
+            List<Long> studentsWithoutSubmission
+                    = enrollmentRepository.findEnrolledStudentsWithoutSubmission(assignmentId);
 
             if (studentsWithoutSubmission.isEmpty()) {
                 continue;

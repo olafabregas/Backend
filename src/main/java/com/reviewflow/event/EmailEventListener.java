@@ -54,7 +54,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "evaluation-published",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "recipientName", event.getRecipientName(),
                         "assignmentTitle", event.getAssignmentTitle(),
                         "courseCode", event.getCourseCode(),
@@ -72,7 +72,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "submission-received",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "instructorName", event.getRecipientName(),
                         "submitterName", event.getTeamOrStudentName(),
                         "assignmentTitle", event.getAssignmentTitle(),
@@ -90,7 +90,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "team-invite-received",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "recipientName", event.getRecipientName(),
                         "inviterName", event.getInviterName(),
                         "assignmentTitle", event.getAssignmentTitle(),
@@ -108,7 +108,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "team-invite-responded",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "recipientName", event.getRecipientName(),
                         "inviteeName", event.getInviteeName(),
                         "accepted", event.getAccepted(),
@@ -126,7 +126,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "assignment-due-soon",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "recipientName", event.getRecipientName(),
                         "assignmentTitle", event.getAssignmentTitle(),
                         "dueAt", event.getDueAt(),
@@ -141,7 +141,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "announcement-posted",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "recipientName", event.getRecipientName(),
                         "announcementTitle", event.getAnnouncementTitle(),
                         "body", event.getBody(),
@@ -159,7 +159,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "extension-request-received",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "recipientName", event.getRecipientName(),
                         "studentName", event.getStudentName(),
                         "assignmentTitle", event.getAssignmentTitle(),
@@ -175,7 +175,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "extension-decision",
-                    withCommon(event, vars(
+                withCommon(event, vars(
                         "recipientName", event.getRecipientName(),
                         "assignmentTitle", event.getAssignmentTitle(),
                         "approved", event.getApproved(),
@@ -190,7 +190,7 @@ public class EmailEventListener {
         sendEmail(
                 event,
                 "account-reactivated",
-                    withCommon(event, vars("firstName", event.getFirstName())),
+                withCommon(event, vars("firstName", event.getFirstName())),
                 "Your ReviewFlow account has been reactivated");
     }
 

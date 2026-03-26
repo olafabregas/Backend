@@ -127,8 +127,8 @@ class UserServiceEmailNotificationTest {
         when(userRepository.findByEmail("new@test.local")).thenReturn(Optional.of(existing));
 
         DuplicateResourceException thrown = assertThrows(
-            DuplicateResourceException.class,
-            () -> userService.createUser("new@test.local", "password123", "Ada", "Lovelace", UserRole.STUDENT));
+                DuplicateResourceException.class,
+                () -> userService.createUser("new@test.local", "password123", "Ada", "Lovelace", UserRole.STUDENT));
         assertNotNull(thrown);
     }
 
@@ -137,8 +137,8 @@ class UserServiceEmailNotificationTest {
         when(userRepository.findByEmail("new@test.local")).thenReturn(Optional.empty());
 
         ValidationException thrown = assertThrows(
-            ValidationException.class,
-            () -> userService.createUser("new@test.local", "short", "Ada", "Lovelace", UserRole.STUDENT));
+                ValidationException.class,
+                () -> userService.createUser("new@test.local", "short", "Ada", "Lovelace", UserRole.STUDENT));
         assertNotNull(thrown);
     }
 

@@ -303,17 +303,3 @@ class EmailEventListenerTest {
         verify(userRepository, never()).findEmailPreferenceByEmail("student@test.local");
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
