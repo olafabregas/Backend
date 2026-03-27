@@ -488,6 +488,54 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(AssignmentNotInCourseException.class)
+    public ResponseEntity<ErrorResponse> handleAssignmentNotInCourse(AssignmentNotInCourseException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code("ASSIGNMENT_NOT_IN_COURSE")
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    @ExceptionHandler(NoSubmissionsFoundException.class)
+    public ResponseEntity<ErrorResponse> handleNoSubmissionsFound(NoSubmissionsFoundException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code("NO_SUBMISSIONS_FOUND")
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body);
+    }
+
+    @ExceptionHandler(PreviewNotSupportedException.class)
+    public ResponseEntity<ErrorResponse> handlePreviewNotSupported(PreviewNotSupportedException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code(ex.getCode())
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(FileTooLargeForPreviewException.class)
+    public ResponseEntity<ErrorResponse> handleFileTooLargeForPreview(FileTooLargeForPreviewException ex) {
+        ErrorResponse body = ErrorResponse.builder()
+                .error(ErrorResponse.ErrorDetail.builder()
+                        .code(ex.getCode())
+                        .message(ex.getMessage())
+                        .build())
+                .timestamp(Instant.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneric(Exception ex) {
         ErrorResponse body = ErrorResponse.builder()

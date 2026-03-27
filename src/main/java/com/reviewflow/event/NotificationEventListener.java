@@ -42,17 +42,17 @@ public class NotificationEventListener {
     private final CourseEnrollmentRepository courseEnrollmentRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    // ── ANNOUNCEMENT PUBLISHED ────────────────────────────────────
+    // -- ANNOUNCEMENT PUBLISHED ------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onAnnouncementPublished(AnnouncementPublishedEvent event) {
         List<Long> recipientUserIds;
 
         if ("COURSE".equals(event.getTarget())) {
-            // Course announcement — send to all enrolled students in this course
+            // Course announcement - send to all enrolled students in this course
             recipientUserIds = courseEnrollmentRepository.findUserIdsByCourse_ID(event.getCourseId());
         } else {
-            // Platform announcement — send based on recipient_type
+            // Platform announcement - send based on recipient_type
             if ("ALL_STUDENTS".equals(event.getRecipientType())) {
                 recipientUserIds = userRepository.findAllIdsByRole(UserRole.STUDENT);
             } else if ("ALL_INSTRUCTORS".equals(event.getRecipientType())) {
@@ -82,12 +82,12 @@ public class NotificationEventListener {
                             event.getTitle(),
                             event.getBody(),
                             event.getCreatedByName(),
-                            "" // courseCode — empty string for platform announcements, not available in event
+                            "" // courseCode - empty string for platform announcements, not available in event
                     )));
         }
     }
 
-    // ── TEAM INVITE ───────────────────────────────────────────────
+    // -- TEAM INVITE -----------------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onTeamInvite(TeamInviteEvent event) {
@@ -111,7 +111,7 @@ public class NotificationEventListener {
                         hashidService.encode(event.teamId()))));
     }
 
-    // ── NEW SUBMISSION ────────────────────────────────────────────
+    // -- NEW SUBMISSION --------------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onSubmissionUploaded(SubmissionUploadedEvent event) {
@@ -137,7 +137,7 @@ public class NotificationEventListener {
         }
     }
 
-    // ── FEEDBACK PUBLISHED ────────────────────────────────────────
+    // -- FEEDBACK PUBLISHED ----------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onEvaluationPublished(EvaluationPublishedEvent event) {
@@ -183,7 +183,7 @@ public class NotificationEventListener {
         }
     }
 
-    // ── TEAM LOCKED ───────────────────────────────────────────────
+    // -- TEAM LOCKED -----------------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onTeamLocked(TeamLockedEvent event) {
@@ -196,7 +196,7 @@ public class NotificationEventListener {
         );
     }
 
-    // ── DEADLINE WARNING ──────────────────────────────────────────
+    // -- DEADLINE WARNING ------------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onDeadlineWarning(DeadlineWarningEvent event) {
@@ -225,7 +225,7 @@ public class NotificationEventListener {
         }
     }
 
-    // ── EXTENSION REQUESTED ───────────────────────────────────────
+    // -- EXTENSION REQUESTED ---------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onExtensionRequested(ExtensionRequestedEvent event) {
@@ -251,7 +251,7 @@ public class NotificationEventListener {
         }
     }
 
-    // ── EXTENSION DECIDED ─────────────────────────────────────────
+    // -- EXTENSION DECIDED -----------------------------------------
     @Async("notificationExecutor")
     @EventListener
     public void onExtensionDecided(ExtensionDecidedEvent event) {
@@ -280,7 +280,7 @@ public class NotificationEventListener {
         }
     }
 
-    // ── HELPERS ───────────────────────────────────────────────────
+    // -- HELPERS ----------------------------------------------------
     private void saveAndPush(Long userId, NotificationType type,
             String title, String message, String actionUrl) {
         saveAndPush(userId, type, title, message, actionUrl, null);
@@ -299,13 +299,13 @@ public class NotificationEventListener {
 
         notificationRepository.save(notification);
 
-        // Evict stale unread count for this user — it just increased by 1
+        // Evict stale unread count for this user - it just increased by 1
         var cache = cacheManager.getCache(CacheConfig.CACHE_UNREAD_COUNT);
         if (cache != null) {
             cache.evict(userId);
         }
 
-        // Push via WebSocket — if user is offline this is silently ignored
+        // Push via WebSocket - if user is offline this is silently ignored
         // The notification is safely persisted in DB and delivered via
         // GET /notifications on the user's next page load
         try {
@@ -316,7 +316,7 @@ public class NotificationEventListener {
             );
             log.debug("Pushed {} to user {}", type, userId);
         } catch (Exception e) {
-            log.debug("User {} offline — {} saved to DB only", userId, type);
+            log.debug("User {} offline - {} saved to DB only", userId, type);
         }
     }
 

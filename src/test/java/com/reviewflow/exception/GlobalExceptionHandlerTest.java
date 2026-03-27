@@ -125,4 +125,22 @@ class GlobalExceptionHandlerTest {
         assertEquals(HttpStatus.CONFLICT, response.getStatusCode());
         assertEquals("NOT_IN_TEAM", response.getBody().getError().getCode());
     }
+
+    @Test
+    void assignmentNotInCourse_mapsTo400WithCode() {
+        ResponseEntity<ErrorResponse> response
+                = handler.handleAssignmentNotInCourse(new AssignmentNotInCourseException());
+
+        assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
+        assertEquals("ASSIGNMENT_NOT_IN_COURSE", response.getBody().getError().getCode());
+    }
+
+    @Test
+    void noSubmissionsFound_mapsTo404WithCode() {
+        ResponseEntity<ErrorResponse> response
+                = handler.handleNoSubmissionsFound(new NoSubmissionsFoundException());
+
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
+        assertEquals("NO_SUBMISSIONS_FOUND", response.getBody().getError().getCode());
+    }
 }

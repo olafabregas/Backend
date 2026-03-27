@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
+import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
 import software.amazon.awssdk.services.s3.model.S3Exception;
@@ -101,6 +102,45 @@ public class S3Service {
 
     public String generatePresignedAvatarUrl(String key) {
         return generatePresignedDownloadUrl(key, Duration.ofMinutes(avatarUrlExpiryMinutes));
+    }
+
+    public String generatePresignedPreviewUrl(String key, String contentType) {
+        return generatePresignedPreviewUrl(key, contentType, Duration.ofMinutes(presignedUrlExpiryMinutes));
+    }
+
+    public String generatePresignedPreviewUrl(String key, String contentType, Duration expiry) {
+        try (S3Presigner presigner = S3Presigner.builder()
+                .region(Region.of(region))
+                .credentialsProvider(DefaultCredentialsProvider.create())
+                .build()) {
+            return presigner.presignGetObject(
+                    GetObjectPresignRequest.builder()
+                            .signatureDuration(expiry)
+                            .getObjectRequest(req -> req
+                            .bucket(bucket)
+                            .key(key)
+                            .responseContentDisposition("inline")
+                            .responseContentType(contentType))
+                            .build())
+                    .url()
+                    .toString();
+        } catch (S3Exception e) {
+            log.error("Presigned preview URL generation failed for key {}: {}", key, e.getMessage());
+            throw new StorageException("Could not generate preview link. Please try again.", e);
+        }
+    }
+
+    public long getObjectSize(String key) {
+        try {
+            HeadObjectResponse response = s3Client.headObject(
+                    HeadObjectRequest.builder().bucket(bucket).key(key).build());
+            return response.contentLength();
+        } catch (NoSuchKeyException e) {
+            throw new StorageNotFoundException("File not found: " + key);
+        } catch (S3Exception e) {
+            log.error("Failed to get object size for key {}: {}", key, e.getMessage());
+            throw new StorageException("Could not retrieve file size. Please try again.", e);
+        }
     }
 
     private String generatePresignedDownloadUrl(String key, Duration expiry) {

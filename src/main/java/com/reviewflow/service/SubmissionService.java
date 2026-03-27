@@ -19,12 +19,15 @@ import org.springframework.web.multipart.MultipartFile;
 import com.reviewflow.event.SubmissionUploadedEvent;
 import com.reviewflow.exception.AccessDeniedException;
 import com.reviewflow.exception.DuplicateResourceException;
+import com.reviewflow.exception.FileTooLargeForPreviewException;
 import com.reviewflow.exception.IndividualSubmissionOnlyException;
 import com.reviewflow.exception.MalwareDetectedException;
+import com.reviewflow.exception.PreviewNotSupportedException;
 import com.reviewflow.exception.RateLimitException;
 import com.reviewflow.exception.ResourceNotFoundException;
 import com.reviewflow.exception.TeamSubmissionRequiredException;
 import com.reviewflow.exception.ValidationException;
+import com.reviewflow.model.dto.response.PreviewResponseDto;
 import com.reviewflow.model.entity.Assignment;
 import com.reviewflow.model.entity.CourseInstructor;
 import com.reviewflow.model.entity.ExtensionRequest;
@@ -46,6 +49,7 @@ import com.reviewflow.repository.TeamMemberRepository;
 import com.reviewflow.repository.TeamRepository;
 import com.reviewflow.repository.UserRepository;
 import com.reviewflow.storage.StorageService;
+import com.reviewflow.util.MimeTypeResolver;
 import com.reviewflow.util.S3KeyBuilder;
 
 import lombok.RequiredArgsConstructor;
@@ -57,6 +61,7 @@ import lombok.extern.slf4j.Slf4j;
 public class SubmissionService {
 
     private static final int MAX_CHANGE_NOTE_LENGTH = 500;
+    private static final long MAX_PREVIEW_FILE_SIZE_BYTES = 52_428_800; // 50 MB
 
     // Concurrent upload tracking
     private final Map<String, Boolean> uploadLocks = new ConcurrentHashMap<>();
@@ -78,6 +83,7 @@ public class SubmissionService {
     private final SecurityMetrics securityMetrics;
     private final AuditService auditService;
     private final HashidService hashidService;
+    private final S3Service s3Service;
 
     @Value("${file.validation.submission.max-size-bytes:104857600}")
     private long submissionMaxFileSizeBytes;
@@ -108,10 +114,10 @@ public class SubmissionService {
             );
         }
 
-        // ══════════════════════════════════════════════════════════════════════
+        // =====================================================================
         // THREE-GATE FILE SECURITY VALIDATION + CLAMAV SCAN
         // Save file once to temp location for all validation steps
-        // ══════════════════════════════════════════════════════════════════════
+        // =====================================================================
         String originalName = file.getOriginalFilename();
         String sanitizedName = originalName != null ? originalName.replaceAll("[^a-zA-Z0-9.-]", "_") : "upload";
         java.nio.file.Path tempFile;
@@ -438,5 +444,54 @@ public class SubmissionService {
 
     public Page<Submission> getMySubmissions(Long userId, Pageable pageable) {
         return submissionRepository.findByTeamMemberUserId(userId, pageable);
+    }
+
+    public PreviewResponseDto getPreviewUrl(String submissionHashId, Long userId, UserRole role) {
+        // Decode hashid to get submission ID
+        Long submissionId;
+        try {
+            submissionId = hashidService.decode(submissionHashId);
+        } catch (Exception e) {
+            throw new ResourceNotFoundException("Submission", submissionHashId);
+        }
+
+        // Get submission with access control
+        Submission submission = getSubmission(submissionId, userId, role);
+
+        // Get the S3 key for the submission file
+        String s3Key = S3KeyBuilder.submissionKey(
+                hashidService.encode(submission.getAssignment().getId()),
+                submission.getStudent() != null
+                ? hashidService.encode(submission.getStudent().getId())
+                : hashidService.encode(submission.getTeam().getId()),
+                submission.getVersionNumber(),
+                submission.getFileName());
+
+        // Get file size and validate
+        long fileSizeBytes = s3Service.getObjectSize(s3Key);
+        if (fileSizeBytes > MAX_PREVIEW_FILE_SIZE_BYTES) {
+            throw new FileTooLargeForPreviewException(fileSizeBytes, MAX_PREVIEW_FILE_SIZE_BYTES);
+        }
+
+        // Determine MIME type from filename
+        String mimeType = MimeTypeResolver.getMimeType(submission.getFileName());
+        if (mimeType == null) {
+            throw new PreviewNotSupportedException("Unknown");
+        }
+
+        // Check if MIME type is previewable
+        if (!MimeTypeResolver.isPreviewable(mimeType)) {
+            throw new PreviewNotSupportedException(mimeType);
+        }
+
+        // Generate presigned preview URL with inline disposition
+        String previewUrl = s3Service.generatePresignedPreviewUrl(s3Key, mimeType);
+
+        return PreviewResponseDto.builder()
+                .previewUrl(previewUrl)
+                .contentType(mimeType)
+                .expiresInSeconds(15 * 60L) // 15 minutes
+                .filename(submission.getFileName())
+                .build();
     }
 }

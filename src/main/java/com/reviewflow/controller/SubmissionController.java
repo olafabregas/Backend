@@ -1,22 +1,30 @@
 package com.reviewflow.controller;
 
-import com.reviewflow.model.dto.response.ApiResponse;
-import com.reviewflow.model.dto.response.SubmissionResponse;
-import com.reviewflow.model.entity.Submission;
-import com.reviewflow.security.ReviewFlowUserDetails;
-import com.reviewflow.service.SubmissionService;
-import com.reviewflow.service.HashidService;
-import lombok.RequiredArgsConstructor;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import com.reviewflow.model.dto.response.ApiResponse;
+import com.reviewflow.model.dto.response.PreviewResponseDto;
+import com.reviewflow.model.dto.response.SubmissionResponse;
+import com.reviewflow.model.entity.Submission;
+import com.reviewflow.security.ReviewFlowUserDetails;
+import com.reviewflow.service.HashidService;
+import com.reviewflow.service.SubmissionService;
+
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/submissions")
@@ -28,12 +36,12 @@ public class SubmissionController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<SubmissionResponse>> upload(
-                        @RequestParam(required = false) String teamId,
+            @RequestParam(required = false) String teamId,
             @RequestParam String assignmentId,
             @RequestParam(required = false) String changeNote,
             @RequestParam("file") MultipartFile file,
             @AuthenticationPrincipal ReviewFlowUserDetails user) {
-                Long teamIdLong = teamId != null ? hashidService.decodeOrThrow(teamId) : null;
+        Long teamIdLong = teamId != null ? hashidService.decodeOrThrow(teamId) : null;
         Long assignmentIdLong = hashidService.decodeOrThrow(assignmentId);
         Submission sub = submissionService.upload(teamIdLong, assignmentIdLong, changeNote, file, user.getUserId());
         return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
@@ -73,6 +81,14 @@ public class SubmissionController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + sub.getFileName() + "\"")
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
                 .body(resource);
+    }
+
+    @GetMapping("/{id}/preview")
+    public ResponseEntity<ApiResponse<PreviewResponseDto>> preview(
+            @PathVariable String id,
+            @AuthenticationPrincipal ReviewFlowUserDetails user) {
+        PreviewResponseDto previewDto = submissionService.getPreviewUrl(id, user.getUserId(), user.getRole());
+        return ResponseEntity.ok(ApiResponse.ok(previewDto));
     }
 
     private SubmissionResponse toResponse(Submission s) {

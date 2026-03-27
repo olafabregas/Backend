@@ -1,31 +1,41 @@
 package com.reviewflow.controller;
 
-import com.reviewflow.model.dto.request.CreateEvaluationRequest;
-import com.reviewflow.model.dto.request.PatchCommentRequest;
-import com.reviewflow.model.dto.request.PatchScoreRequest;
-import com.reviewflow.model.dto.request.UpdateScoresRequest;
-import com.reviewflow.model.dto.response.ApiResponse;
-import com.reviewflow.model.dto.response.EvaluationResponse;
-import com.reviewflow.model.entity.Evaluation;
-import com.reviewflow.model.entity.RubricScore;
-import com.reviewflow.repository.RubricScoreRepository;
-import com.reviewflow.security.ReviewFlowUserDetails;
-import com.reviewflow.service.EvaluationService;
-import com.reviewflow.service.HashidService;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
+import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 
-import java.math.BigDecimal;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
+import com.reviewflow.model.dto.request.CreateEvaluationRequest;
+import com.reviewflow.model.dto.request.PatchCommentRequest;
+import com.reviewflow.model.dto.request.PatchScoreRequest;
+import com.reviewflow.model.dto.request.UpdateScoresRequest;
+import com.reviewflow.model.dto.response.ApiResponse;
+import com.reviewflow.model.dto.response.EvaluationResponse;
+import com.reviewflow.model.dto.response.PreviewResponseDto;
+import com.reviewflow.model.entity.Evaluation;
+import com.reviewflow.model.entity.RubricScore;
+import com.reviewflow.repository.RubricScoreRepository;
+import com.reviewflow.security.ReviewFlowUserDetails;
+import com.reviewflow.service.EvaluationService;
+import com.reviewflow.service.HashidService;
+
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/v1/evaluations")
@@ -140,6 +150,14 @@ public class EvaluationController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"evaluation_" + evalId + ".pdf\"")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(resource);
+    }
+
+    @GetMapping("/{id}/pdf/preview")
+    public ResponseEntity<ApiResponse<PreviewResponseDto>> previewPdf(
+            @PathVariable String id,
+            @AuthenticationPrincipal ReviewFlowUserDetails user) {
+        PreviewResponseDto previewDto = evaluationService.getPdfPreviewUrl(id, user.getUserId(), user.getRole());
+        return ResponseEntity.ok(ApiResponse.ok(previewDto));
     }
 
     private EvaluationResponse toResponse(Evaluation ev) {

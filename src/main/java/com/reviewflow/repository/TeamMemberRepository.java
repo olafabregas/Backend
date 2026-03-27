@@ -27,6 +27,16 @@ public interface TeamMemberRepository extends JpaRepository<TeamMember, Long> {
 
     @Query("SELECT tm FROM TeamMember tm WHERE tm.assignment.id = :assignmentId AND tm.user.id = :userId")
     List<TeamMember> findByAssignmentIdAndUserId(@Param("assignmentId") Long assignmentId, @Param("userId") Long userId);
+
+        @Query("""
+            SELECT tm
+            FROM TeamMember tm
+            JOIN FETCH tm.user u
+            WHERE tm.team.id IN :teamIds
+              AND tm.status = :status
+            """)
+        List<TeamMember> findByTeamIdsAndStatusWithUser(@Param("teamIds") List<Long> teamIds,
+            @Param("status") TeamMemberStatus status);
     
     long countByUser_Id(Long userId);
 }

@@ -32,6 +32,38 @@ public interface SubmissionRepository extends JpaRepository<Submission, Long> {
 
     List<Submission> findByAssignment_IdOrderByTeam_IdAscVersionNumberDesc(Long assignmentId);
 
+        @Query("""
+                        SELECT s
+                        FROM Submission s
+                        JOIN FETCH s.team t
+                        WHERE s.assignment.id = :assignmentId
+                            AND s.team IS NOT NULL
+                            AND s.versionNumber = (
+                                    SELECT MAX(s2.versionNumber)
+                                    FROM Submission s2
+                                    WHERE s2.assignment.id = :assignmentId
+                                        AND s2.team.id = s.team.id
+                            )
+                        ORDER BY t.name ASC
+                        """)
+        List<Submission> findLatestTeamSubmissionsByAssignmentId(@Param("assignmentId") Long assignmentId);
+
+        @Query("""
+                        SELECT s
+                        FROM Submission s
+                        JOIN FETCH s.student st
+                        WHERE s.assignment.id = :assignmentId
+                            AND s.student IS NOT NULL
+                            AND s.versionNumber = (
+                                    SELECT MAX(s2.versionNumber)
+                                    FROM Submission s2
+                                    WHERE s2.assignment.id = :assignmentId
+                                        AND s2.student.id = s.student.id
+                            )
+                        ORDER BY st.lastName ASC, st.firstName ASC
+                        """)
+        List<Submission> findLatestIndividualSubmissionsByAssignmentId(@Param("assignmentId") Long assignmentId);
+
     @Query("SELECT s FROM Submission s WHERE s.team.id IN (SELECT tm.team.id FROM TeamMember tm WHERE tm.user.id = :userId) ORDER BY s.uploadedAt DESC")
     org.springframework.data.domain.Page<Submission> findByTeamMemberUserId(@Param("userId") Long userId, org.springframework.data.domain.Pageable pageable);
 }
