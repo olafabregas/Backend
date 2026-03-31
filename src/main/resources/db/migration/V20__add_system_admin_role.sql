@@ -68,7 +68,7 @@ SELECT
     JSON_OBJECT('reason', 'Initial platform operator account', 'migration', 'V20'),
     NOW()
 FROM users u
-WHERE u.email = 'admin@reviewflow.com'
+WHERE u.email = 'email@example.com'
 ON DUPLICATE KEY UPDATE action = action;  -- no-op for idempotency
 
 -- Backup audit entries (uncomment if backup accounts are seeded)
