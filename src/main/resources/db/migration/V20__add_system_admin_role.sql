@@ -61,27 +61,27 @@ ON DUPLICATE KEY UPDATE role = 'SYSTEM_ADMIN';
 -- This entry is permanent and immutable - documents the creation action and reason
 INSERT INTO audit_log (actor_id, action, target_type, target_id, metadata, created_at)
 SELECT
-    id,
+    u.id,
     'SYSTEM_ADMIN_CREATED',
     'USER',
-    id,
+    u.id,
     JSON_OBJECT('reason', 'Initial platform operator account', 'migration', 'V20'),
     NOW()
-FROM users
-WHERE email = 'admin@reviewflow.com'
-ON DUPLICATE KEY UPDATE created_at = created_at;  -- prevent duplicate inserts on re-run
+FROM users u
+WHERE u.email = 'admin@reviewflow.com'
+ON DUPLICATE KEY UPDATE action = action;  -- no-op for idempotency
 
 -- Backup audit entries (uncomment if backup accounts are seeded)
 /*
 INSERT INTO audit_log (actor_id, action, target_type, target_id, metadata, created_at)
 SELECT
-    id,
+    u.id,
     'SYSTEM_ADMIN_CREATED',
     'USER',
-    id,
+    u.id,
     JSON_OBJECT('reason', 'Backup platform operator account', 'migration', 'V20'),
     NOW()
-FROM users
-WHERE email IN ('ops-backup-1@reviewflow.com', 'ops-backup-2@reviewflow.com')
-ON DUPLICATE KEY UPDATE created_at = created_at;
+FROM users u
+WHERE u.email IN ('ops-backup-1@reviewflow.com', 'ops-backup-2@reviewflow.com')
+ON DUPLICATE KEY UPDATE action = action;
 */

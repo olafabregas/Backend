@@ -32,7 +32,7 @@ import com.reviewflow.exception.InvalidFileStructureException;
 import com.reviewflow.exception.InvalidFileTypeException;
 import com.reviewflow.exception.InvalidMimeTypeException;
 import com.reviewflow.exception.PdfEncryptedException;
-import com.reviewflow.monitoring.SecurityMetrics;
+import com.reviewflow.monitoring.ReviewFlowMetrics;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,7 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 public class FileSecurityValidator {
 
     private final FileSecurityProperties securityProperties;
-    private final SecurityMetrics securityMetrics;
+    private final ReviewFlowMetrics metrics;
     private final Tika tika = new Tika();
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -181,7 +181,7 @@ public class FileSecurityValidator {
 
         // ── GATE 1A — Denylist ───────────────────────────────────────────
         if (BLOCKED_EXTENSIONS.contains(extension)) {
-            securityMetrics.recordFileBlocked();
+            metrics.recordBlockedFileUpload("extension");
             log.warn("BLOCKED_FILE_TYPE user={} file={} ip={}", userId, filename, ipAddress);
             throw new BlockedFileTypeException(extension);
         }
@@ -239,7 +239,7 @@ public class FileSecurityValidator {
 
         // ── GATE 1A — Denylist ───────────────────────────────────────────
         if (BLOCKED_EXTENSIONS.contains(extension)) {
-            securityMetrics.recordFileBlocked();
+            metrics.recordBlockedFileUpload("extension");
             log.warn("BLOCKED_FILE_TYPE user={} file={} ip={}", userId, filename, ipAddress);
             throw new BlockedFileTypeException(extension);
         }
@@ -276,14 +276,14 @@ public class FileSecurityValidator {
             }
 
             if (isExecutableMime(detectedMime)) {
-                securityMetrics.recordFileExecutable();
+                metrics.recordBlockedFileUpload("executable");
                 log.warn("EXECUTABLE_MIME_DETECTED user={} file={} mime={} ip={}",
                         userId, filename, detectedMime, ipAddress);
                 throw new InvalidMimeTypeException("File content does not match its extension. Executable content is not permitted");
             }
 
             if (!isMimeAcceptable(detectedMime, extension)) {
-                securityMetrics.recordFileMimeMismatch();
+                metrics.recordBlockedFileUpload("mime_mismatch");
                 log.warn("MIME_MISMATCH user={} file={} expected={} detected={} ip={}",
                         userId, filename, EXTENSION_TO_MIME.get(extension), detectedMime, ipAddress);
                 throw new InvalidMimeTypeException(detectedMime, extension);

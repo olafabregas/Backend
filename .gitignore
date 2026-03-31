@@ -64,7 +64,7 @@ Desktop.ini
 *.swp
 *.swo       
 
-controller_specs/
+other/
 workflow/
 postman/
 tasks/

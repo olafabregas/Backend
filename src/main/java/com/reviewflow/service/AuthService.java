@@ -16,11 +16,11 @@ import com.reviewflow.exception.TooManyRequestsException;
 import com.reviewflow.model.dto.response.AuthUserResponse;
 import com.reviewflow.model.entity.RefreshToken;
 import com.reviewflow.model.entity.User;
+import com.reviewflow.monitoring.ReviewFlowMetrics;
 import com.reviewflow.repository.RefreshTokenRepository;
 import com.reviewflow.repository.UserRepository;
 import com.reviewflow.security.JwtService;
 import com.reviewflow.security.ReviewFlowUserDetails;
-import com.reviewflow.monitoring.SecurityMetrics;
 
 import lombok.RequiredArgsConstructor;
 
@@ -34,14 +34,14 @@ public class AuthService {
     private final JwtService jwtService;
     private final AuditService auditService;
     private final RateLimiterService rateLimiterService;
-    private final SecurityMetrics securityMetrics;
+    private final ReviewFlowMetrics metrics;
     private final HashidService hashidService;
 
     @Transactional
     public LoginResult login(String email, String password, String ipAddress) {
         // Check rate limiting
         if (rateLimiterService.isLoginRateLimited(ipAddress)) {
-            securityMetrics.recordLoginRateLimited();
+            metrics.recordLoginRateLimited();
             long retryAfter = rateLimiterService.getLoginRetryAfterSeconds(ipAddress);
             throw new TooManyRequestsException("Too many login attempts. Please try again later.", retryAfter);
         }
@@ -59,14 +59,14 @@ public class AuthService {
         }
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
             rateLimiterService.recordFailedLogin(ipAddress);
-            securityMetrics.recordLoginFailed();
+            metrics.recordFailedLogin();
             auditService.log(user.getId(), "USER_LOGIN_FAILED", "User", user.getId(), "Invalid password", ipAddress);
             throw new BadCredentialsException("Invalid credentials");
         }
 
         // Successful login - clear rate limit for this IP
         rateLimiterService.clearFailedLogins(ipAddress);
-        securityMetrics.recordLoginSuccess();
+        metrics.recordUserLogin();
 
         ReviewFlowUserDetails details = new ReviewFlowUserDetails(user);
         String accessToken = jwtService.generateAccessToken(details);

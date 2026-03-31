@@ -1,9 +1,8 @@
 package com.reviewflow.service;
 
-import com.reviewflow.config.FileSecurityProperties;
-import com.reviewflow.exception.AvatarInvalidTypeException;
-import com.reviewflow.exception.AvatarTooLargeException;
-import com.reviewflow.monitoring.SecurityMetrics;
+import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -11,10 +10,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.mock.web.MockMultipartFile;
 
-import java.io.IOException;
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import com.reviewflow.config.FileSecurityProperties;
+import com.reviewflow.exception.AvatarInvalidTypeException;
+import com.reviewflow.exception.AvatarTooLargeException;
+import com.reviewflow.monitoring.ReviewFlowMetrics;
 
 @ExtendWith(MockitoExtension.class)
 class FileSecurityValidatorAvatarTest {
@@ -23,13 +22,13 @@ class FileSecurityValidatorAvatarTest {
     private FileSecurityProperties securityProperties;
 
     @Mock
-    private SecurityMetrics securityMetrics;
+    private ReviewFlowMetrics metrics;
 
     private FileSecurityValidator validator;
 
     @BeforeEach
     void setUp() {
-        validator = new FileSecurityValidator(securityProperties, securityMetrics);
+        validator = new FileSecurityValidator(securityProperties, metrics);
     }
 
     @Test

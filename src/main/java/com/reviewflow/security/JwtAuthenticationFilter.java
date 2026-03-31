@@ -2,6 +2,7 @@ package com.reviewflow.security;
 
 import com.reviewflow.monitoring.SecurityMetrics;
 import com.reviewflow.service.RateLimiterService;
+import com.reviewflow.service.HashidService;
 import com.reviewflow.util.IpAddressExtractor;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -11,6 +12,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -32,6 +34,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final RateLimiterService rateLimiterService;
     private final IpAddressExtractor ipAddressExtractor;
     private final SecurityMetrics securityMetrics;
+    private final HashidService hashidService;
 
     @Value("${jwt.cookie-name:reviewflow_access}")
     private String accessCookieName;
@@ -75,32 +78,38 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String email = jwtService.extractEmail(token);
             if (email != null) {
                 var userDetails = userDetailsService.loadUserByUsername(email);
-                
+
                 if (jwtService.isTokenValid(token, userDetails)) {
                     // Token fingerprinting check
                     if (tokenFingerprintingEnabled) {
                         String tokenUserAgent = jwtService.extractClaim(token, "userAgent");
                         String requestUserAgent = request.getHeader("User-Agent");
-                        
+
                         if (tokenUserAgent != null && !tokenUserAgent.equals(requestUserAgent)) {
-                            log.warn("Token fingerprint mismatch for user={} ip={} tokenUA={} requestUA={}", 
-                                email, ip, tokenUserAgent, requestUserAgent);
+                            log.warn("Token fingerprint mismatch for user={} ip={} tokenUA={} requestUA={}",
+                                    email, ip, tokenUserAgent, requestUserAgent);
                             securityMetrics.recordTokenFingerprintMismatch();
                             rateLimiterService.recordFailedTokenValidation(ip);
                             filterChain.doFilter(request, response);
                             return;
                         }
                     }
-                    
+
                     var auth = new UsernamePasswordAuthenticationToken(
                             userDetails,
                             null,
                             userDetails.getAuthorities());
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                    
-                    log.debug("Authenticated user={} from ip={} via {}", 
-                        email, ip, tokenOpt.get().startsWith("Bearer") ? "Bearer" : "Cookie");
+
+                    // PRD-08: Populate MDC for request correlation
+                    if (userDetails instanceof ReviewFlowUserDetails rfDetails) {
+                        MDC.put("userId", hashidService.encode(rfDetails.getUserId()));
+                        MDC.put("role", rfDetails.getRole().name());
+                    }
+
+                    log.debug("Authenticated user={} from ip={} via {}",
+                            email, ip, tokenOpt.get().startsWith("Bearer") ? "Bearer" : "Cookie");
                 }
             }
         } catch (io.jsonwebtoken.JwtException | org.springframework.security.core.userdetails.UsernameNotFoundException e) {
@@ -113,7 +122,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Extract JWT token from Cookie (priority) or Bearer Authorization header (fallback).
+     * Extract JWT token from Cookie (priority) or Bearer Authorization header
+     * (fallback).
      */
     private Optional<String> extractToken(HttpServletRequest request) {
         // Priority 1: Cookie
@@ -134,7 +144,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private Optional<String> getAccessTokenFromCookie(HttpServletRequest request) {
         Cookie[] cookies = request.getCookies();
-        if (cookies == null) return Optional.empty();
+        if (cookies == null) {
+            return Optional.empty();
+        }
         for (Cookie cookie : cookies) {
             if (accessCookieName.equals(cookie.getName())) {
                 String value = cookie.getValue();
