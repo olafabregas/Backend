@@ -3,6 +3,11 @@ package com.reviewflow.controller;
 import com.reviewflow.model.dto.response.ApiResponse;
 import com.reviewflow.model.entity.AuditLog;
 import com.reviewflow.service.AuditService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,10 +24,33 @@ import java.time.Instant;
 @RequestMapping("/api/v1/admin/audit-log")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Admin Audit", description = "Audit log viewing for compliance and troubleshooting")
 public class AdminAuditController {
 
     private final AuditService auditService;
 
+    @Operation(
+        summary = "List audit logs",
+        description = "Get paginated audit logs with optional filters by actor, action, target type, and date range. " +
+                    "Used for compliance, troubleshooting, and security investigation. Admin-only endpoint."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Audit logs retrieved successfully",
+            content = @Content(schema = @Schema(implementation = Page.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping
     public ResponseEntity<ApiResponse<Page<AuditLog>>> list(
             @RequestParam(required = false) Long actorId,

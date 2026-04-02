@@ -3,6 +3,7 @@ package com.reviewflow.model.dto.request;
 import com.reviewflow.model.enums.RecipientType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;

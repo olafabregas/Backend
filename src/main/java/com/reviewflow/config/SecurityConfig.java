@@ -69,13 +69,15 @@ public class SecurityConfig {
                     }
                 })
                 // Content Security Policy - restrict resource loading
+                // Updated to allow CDN resources (cdnjs, jsdelivr) for Redoc and Swagger UI
+                // while maintaining security restrictions for script and style
                 .contentSecurityPolicy(csp -> csp.policyDirectives(
                 "default-src 'self'; "
-                + "script-src 'self' 'unsafe-inline'; "
-                + "style-src 'self' 'unsafe-inline'; "
-                + "img-src 'self' data:; "
-                + "font-src 'self' data:; "
-                + "connect-src 'self'; "
+                + "script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+                + "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+                + "img-src 'self' data: https:; "
+                + "font-src 'self' data: https://cdnjs.cloudflare.com; "
+                + "connect-src 'self' https://cdnjs.cloudflare.com; "
                 + "frame-ancestors 'none'"
         ))
                 )

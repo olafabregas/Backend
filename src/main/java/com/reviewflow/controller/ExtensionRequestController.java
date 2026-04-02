@@ -10,6 +10,11 @@ import com.reviewflow.model.entity.User;
 import com.reviewflow.security.ReviewFlowUserDetails;
 import com.reviewflow.service.ExtensionRequestService;
 import com.reviewflow.service.HashidService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,11 +34,44 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Tag(name = "Extension Requests", description = "Assignment deadline extension request workflow")
 public class ExtensionRequestController {
 
     private final ExtensionRequestService extensionRequestService;
     private final HashidService hashidService;
 
+    @Operation(
+        summary = "Request deadline extension",
+        description = "Submit a deadline extension request for an assignment. Student-only. " +
+                    "Request enters PENDING state and awaits instructor response."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "Extension request created successfully",
+            content = @Content(schema = @Schema(implementation = ExtensionRequestResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid extension request data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - STUDENT role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/assignments/{id}/extension-requests")
     @PreAuthorize("hasRole('STUDENT')")
     public ResponseEntity<ApiResponse<ExtensionRequestResponse>> create(
@@ -52,6 +90,38 @@ public class ExtensionRequestController {
                 .body(ApiResponse.ok(toResponse(created)));
     }
 
+    @Operation(
+        summary = "Respond to extension request",
+        description = "Approve or reject a pending extension request. Instructor-only. " +
+                    "Approved requests update assignment due date and extend all team members' deadlines."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Extension request processed successfully",
+            content = @Content(schema = @Schema(implementation = ExtensionRequestResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid response data or request already responded",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR or ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - request does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PatchMapping("/extension-requests/{id}/respond")
     @PreAuthorize("hasAnyRole('INSTRUCTOR', 'ADMIN')")
     public ResponseEntity<ApiResponse<ExtensionRequestResponse>> respond(
@@ -70,6 +140,33 @@ public class ExtensionRequestController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(updated)));
     }
 
+    @Operation(
+        summary = "List extension requests for assignment",
+        description = "Get paginated list of all extension requests for an assignment. " +
+                    "Includes all statuses (PENDING, APPROVED, REJECTED). Instructor-only."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Extension requests retrieved successfully",
+            content = @Content(schema = @Schema(implementation = Page.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR or ADMIN role required for course",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/assignments/{id}/extension-requests")
     @PreAuthorize("hasAnyRole('INSTRUCTOR', 'ADMIN')")
     public ResponseEntity<ApiResponse<Page<ExtensionRequestListItemResponse>>> listByAssignment(
@@ -84,6 +181,28 @@ public class ExtensionRequestController {
         return ResponseEntity.ok(ApiResponse.ok(mapped));
     }
 
+    @Operation(
+        summary = "List my extension requests",
+        description = "Get paginated list of authenticated student's extension requests. " +
+                    "Shows all requests (PENDING, APPROVED, REJECTED) across all assignments."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "My extension requests retrieved successfully",
+            content = @Content(schema = @Schema(implementation = Page.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - STUDENT or ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/students/me/extension-requests")
     @PreAuthorize("hasAnyRole('STUDENT', 'ADMIN')")
     public ResponseEntity<ApiResponse<Page<ExtensionRequestListItemResponse>>> listMine(

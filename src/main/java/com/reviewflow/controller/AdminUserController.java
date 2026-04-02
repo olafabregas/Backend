@@ -9,6 +9,11 @@ import com.reviewflow.model.entity.UserRole;
 import com.reviewflow.security.ReviewFlowUserDetails;
 import com.reviewflow.service.UserService;
 import com.reviewflow.service.HashidService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -26,11 +31,34 @@ import java.util.Map;
 @RequestMapping("/api/v1/admin/users")
 @RequiredArgsConstructor
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Admin Users", description = "User management endpoints for administrators")
 public class AdminUserController {
 
     private final UserService userService;
     private final HashidService hashidService;
 
+    @Operation(
+        summary = "List users",
+        description = "Get paginated list of all users with optional filters by role, active status, and search term. " +
+                    "Admin-only endpoint."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Users retrieved successfully",
+            content = @Content(schema = @Schema(implementation = Page.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping
     public ResponseEntity<ApiResponse<Page<AuthUserResponse>>> list(
             @RequestParam(required = false) UserRole role,
@@ -42,6 +70,33 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    @Operation(
+        summary = "Get user details",
+        description = "Get user details including associated counts (courses, submissions, etc). " +
+                    "Admin-only endpoint."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "User details retrieved successfully",
+            content = @Content(schema = @Schema(implementation = UserDetailResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - user does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UserDetailResponse>> getById(@PathVariable String id) {
         Long userId = hashidService.decodeOrThrow(id);
@@ -49,6 +104,33 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.ok(user));
     }
 
+    @Operation(
+        summary = "Create user",
+        description = "Create a new user account with specified email, password, name, and role. " +
+                    "Role defaults to STUDENT if not provided. Admin-only endpoint."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "User created successfully",
+            content = @Content(schema = @Schema(implementation = AuthUserResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid user data or email already exists",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping
     public ResponseEntity<ApiResponse<AuthUserResponse>> create(@Valid @RequestBody CreateUserRequest request) {
         User user = userService.createUser(
@@ -58,6 +140,38 @@ public class AdminUserController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(toResponse(user)));
     }
 
+    @Operation(
+        summary = "Update user",
+        description = "Update user details (firstName, lastName, role). All fields optional. " +
+                    "Admin-only endpoint."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "User updated successfully",
+            content = @Content(schema = @Schema(implementation = AuthUserResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - user does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PatchMapping("/{id}")
     public ResponseEntity<ApiResponse<AuthUserResponse>> update(
             @PathVariable String id,
@@ -70,6 +184,33 @@ public class AdminUserController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(user)));
     }
 
+    @Operation(
+        summary = "Deactivate user",
+        description = "Deactivate a user account preventing login. Soft delete - user data retained. " +
+                    "Admin-only endpoint."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "User deactivated successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required or cannot deactivate self",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - user does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PatchMapping("/{id}/deactivate")
     public ResponseEntity<ApiResponse<Map<String, Object>>> deactivate(
             @PathVariable String id,
@@ -82,6 +223,33 @@ public class AdminUserController {
         )));
     }
 
+    @Operation(
+        summary = "Reactivate user",
+        description = "Reactivate a deactivated user account allowing login again. " +
+                    "Admin-only endpoint."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "User reactivated successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - user does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PatchMapping("/{id}/reactivate")
     public ResponseEntity<ApiResponse<Map<String, Object>>> reactivate(@PathVariable String id) {
         Long userId = hashidService.decodeOrThrow(id);

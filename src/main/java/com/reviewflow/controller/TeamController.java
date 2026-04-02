@@ -4,6 +4,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -40,12 +45,39 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Tag(
+    name = "Teams",
+    description = "Team collaboration management for group assignments. Supports team creation, member management, " +
+                "invitations, and team-based submission tracking."
+)
 public class TeamController {
 
     private final TeamService teamService;
     private final SubmissionService submissionService;
     private final HashidService hashidService;
 
+    @Operation(
+        summary = "List teams for assignment",
+        description = "Retrieve all teams for an assignment. Instructors and admins see all teams; " +
+                    "students see only their own team."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Teams retrieved successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/assignments/{assignmentId}/teams")
     public ResponseEntity<ApiResponse<List<TeamResponse>>> list(
             @PathVariable String assignmentId,
@@ -56,6 +88,33 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    @Operation(
+        summary = "Create team",
+        description = "Create new team for assignment. Required: team name. Team creator becomes first member. " +
+                    "Returns HTTP 201 with team details."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "Team created successfully",
+            content = @Content(schema = @Schema(implementation = TeamResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - team name required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "409",
+            description = "Conflict - user already in team for this assignment",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/assignments/{assignmentId}/teams")
     public ResponseEntity<ApiResponse<TeamResponse>> create(
             @PathVariable String assignmentId,
@@ -71,6 +130,28 @@ public class TeamController {
                 .body(ApiResponse.ok(toResponse(team)));
     }
 
+    @Operation(
+        summary = "Auto-assign teams",
+        description = "Automatically create and assign teams for all enrolled students. Optional: maxTeamSize (default 3). " +
+                    "Requires INSTRUCTOR role. Distributes students evenly across teams."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Teams auto-assigned successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/assignments/{assignmentId}/teams/assign")
     @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<List<TeamResponse>>> autoAssign(
@@ -83,6 +164,33 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(created.stream().map(this::toResponse).collect(Collectors.toList())));
     }
 
+    @Operation(
+        summary = "Get team details",
+        description = "Retrieve team information including member list and join status. " +
+                    "Users can only view teams they're members of or belong to their course."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Team details retrieved",
+            content = @Content(schema = @Schema(implementation = TeamResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - no access to this team",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - team does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/teams/{id}")
     public ResponseEntity<ApiResponse<TeamResponse>> get(
             @PathVariable String id,
@@ -92,6 +200,37 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(team)));
     }
 
+    @Operation(
+        summary = "Rename team",
+        description = "Change team name. Only team creator or instructors can rename. Required: new name."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Team renamed successfully",
+            content = @Content(schema = @Schema(implementation = TeamResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid team data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - only team creator or instructor can rename",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - team does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PutMapping("/teams/{id}")
     public ResponseEntity<ApiResponse<TeamResponse>> rename(
             @PathVariable String id,
@@ -102,6 +241,38 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(team)));
     }
 
+    @Operation(
+        summary = "Invite member to team",
+        description = "Send team invitation to user by email. User receives notification and can accept/decline. " +
+                    "Required: inviteeEmail. Only team members can invite."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Invitation sent successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid email or team full",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - must be team member to invite",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - user or team does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/teams/{id}/invite")
     public ResponseEntity<ApiResponse<Map<String, Object>>> invite(
             @PathVariable String id,
@@ -112,6 +283,38 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("teamMemberId", hashidService.encode(member.getId()), "status", member.getStatus().name())));
     }
 
+    @Operation(
+        summary = "Respond to team invitation",
+        description = "Accept or decline team membership invitation. Required: accept (true/false). " +
+                    "Only the invited user can respond."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Invitation response processed",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid response data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - can only respond to your own invitations",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - invitation does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PatchMapping("/team-members/{id}/respond")
     public ResponseEntity<ApiResponse<Map<String, String>>> respond(
             @PathVariable String id,
@@ -122,6 +325,33 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("status", member.getStatus().name())));
     }
 
+    @Operation(
+        summary = "Remove team member",
+        description = "Remove a member from a team. Team members can only remove themselves; " +
+                    "instructors can remove any member."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Member removed successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - insufficient permission to remove this member",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - team or member does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @DeleteMapping("/teams/{id}/members/{userId}")
     public ResponseEntity<ApiResponse<Map<String, String>>> removeMember(
             @PathVariable String id,
@@ -133,6 +363,33 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Member removed")));
     }
 
+    @Operation(
+        summary = "Lock team",
+        description = "Lock team from further membership changes. Locked teams prevent new invitations and membership modifications. " +
+                    "Requires INSTRUCTOR role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Team locked successfully",
+            content = @Content(schema = @Schema(implementation = TeamResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - team does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/teams/{id}/lock")
     @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
     public ResponseEntity<ApiResponse<TeamResponse>> lock(
@@ -143,6 +400,33 @@ public class TeamController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(team)));
     }
     
+    @Operation(
+        summary = "Get team submissions",
+        description = "Retrieve all submissions for a team including version history. " +
+                    "Team members can view their own submissions; instructors can view any team's submissions."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Team submissions retrieved",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - no access to this team",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - team does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/teams/{id}/submissions")
     public ResponseEntity<ApiResponse<List<SubmissionResponse>>> getTeamSubmissions(
             @PathVariable String id,

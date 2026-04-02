@@ -2,6 +2,7 @@ package com.reviewflow.model.dto.response;
 
 import lombok.Builder;
 import lombok.Value;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 import java.time.Instant;

@@ -4,6 +4,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -39,11 +44,43 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Tag(
+    name = "Assignments",
+    description = "Assignment management endpoints. Supports creating, publishing, and managing assignments " +
+                "with rubric criteria for grading. Includes submission and gradebook views for instructors."
+)
 public class AssignmentController {
 
     private final AssignmentService assignmentService;
     private final HashidService hashidService;
 
+    @Operation(
+        summary = "List assignments for course",
+        description = "Retrieve all assignments in a course. Token-based access control: instructors and admins see all, " +
+                    "students see only published assignments for courses they're enrolled in."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Assignments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - no access to this course",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - course does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/courses/{courseId}/assignments")
     public ResponseEntity<ApiResponse<List<AssignmentResponse>>> listByCourse(
             @PathVariable String courseId,
@@ -54,6 +91,33 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    @Operation(
+        summary = "Create assignment",
+        description = "Create new assignment in a course. Requires INSTRUCTOR role. Initializes with title, description, " +
+                    "due date, submission type, and optional team settings and rubric."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "Assignment created successfully",
+            content = @Content(schema = @Schema(implementation = AssignmentResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid assignment data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required for course",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/courses/{courseId}/assignments")
     public ResponseEntity<ApiResponse<AssignmentResponse>> create(
             @PathVariable String courseId,
@@ -67,6 +131,33 @@ public class AssignmentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(toResponse(a)));
     }
 
+    @Operation(
+        summary = "Get assignment details",
+        description = "Retrieve specific assignment by ID with all details including rubric criteria. " +
+                    "Students can only access published assignments in courses they're enrolled in."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Assignment details retrieved",
+            content = @Content(schema = @Schema(implementation = AssignmentResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - no access to this assignment",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/assignments/{id}")
     public ResponseEntity<ApiResponse<AssignmentResponse>> get(
             @PathVariable String id, 
@@ -76,6 +167,38 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(a)));
     }
 
+    @Operation(
+        summary = "Update assignment",
+        description = "Update assignment details (title, description, due date, etc). Requires INSTRUCTOR role for the course. " +
+                    "Cannot update published assignments."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Assignment updated successfully",
+            content = @Content(schema = @Schema(implementation = AssignmentResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid update data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required or assignment already published",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PutMapping("/assignments/{id}")
     public ResponseEntity<ApiResponse<AssignmentResponse>> update(
             @PathVariable String id,
@@ -88,6 +211,28 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(a)));
     }
 
+    @Operation(
+        summary = "Publish assignment",
+        description = "Make assignment visible to students. Once published, assignment details are locked for updates. " +
+                    "Students will receive notifications. Requires INSTRUCTOR role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Assignment published successfully",
+            content = @Content(schema = @Schema(implementation = AssignmentResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required or already published",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PatchMapping("/assignments/{id}/publish")
     public ResponseEntity<ApiResponse<AssignmentResponse>> publish(
             @PathVariable String id,
@@ -97,8 +242,23 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(a)));
     }
 
-// endpoint to get all assignments for the authenticated user (both instructor and student)
-
+    @Operation(
+        summary = "Get my assignments",
+        description = "Retrieve authenticated user's assignments (both instructor-created and student-enrolled). " +
+                    "Supports filtering by status (UPCOMING, PAST_DUE, ALL) and course. Instructors see all their courses' assignments."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Assignments retrieved successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/assignments")
     public ResponseEntity<ApiResponse<List<AssignmentResponse>>> getMyAssignments(
             @AuthenticationPrincipal ReviewFlowUserDetails user,
@@ -110,6 +270,33 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    @Operation(
+        summary = "Delete assignment",
+        description = "Permanently delete an assignment. Requires INSTRUCTOR role for the course. " +
+                    "Deletion cascades to submissions and evaluations."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Assignment deleted successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @DeleteMapping("/assignments/{id}")
     public ResponseEntity<ApiResponse<Map<String, String>>> delete(
             @PathVariable String id,
@@ -119,6 +306,33 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Assignment deleted")));
     }
 
+    @Operation(
+        summary = "Add rubric criterion",
+        description = "Add a single grading criterion to assignment rubric. Required fields: name, maxScore, displayOrder. " +
+                    "Requires INSTRUCTOR role. Used to build rubric scoring matrix."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "Rubric criterion created successfully",
+            content = @Content(schema = @Schema(implementation = AssignmentResponse.RubricCriterionResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - missing required fields (name, maxScore, displayOrder)",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/assignments/{id}/rubric")
     public ResponseEntity<ApiResponse<AssignmentResponse.RubricCriterionResponse>> addRubric(
             @PathVariable String id,
@@ -144,6 +358,38 @@ public class AssignmentController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(toCriterionResponse(c)));
     }
 
+    @Operation(
+        summary = "Update rubric criterion",
+        description = "Update an existing rubric criterion. Optional fields: name, description, maxScore, displayOrder. " +
+                    "Requires INSTRUCTOR role. Changes do not affect already-completed evaluations."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Rubric criterion updated successfully",
+            content = @Content(schema = @Schema(implementation = AssignmentResponse.RubricCriterionResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid criterion data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - criterion does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PutMapping("/assignments/{id}/rubric/{criterionId}")
     public ResponseEntity<ApiResponse<AssignmentResponse.RubricCriterionResponse>> updateRubric(
             @PathVariable String id,
@@ -160,6 +406,33 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(toCriterionResponse(c)));
     }
 
+    @Operation(
+        summary = "Delete rubric criterion",
+        description = "Remove a grading criterion from assignment rubric. Requires INSTRUCTOR role. " +
+                    "Cannot delete if already used in evaluations."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Rubric criterion deleted successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required or criterion in use",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - criterion does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @DeleteMapping("/assignments/{id}/rubric/{criterionId}")
     public ResponseEntity<ApiResponse<Map<String, String>>> deleteRubric(
             @PathVariable String id,
@@ -171,6 +444,33 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Criterion deleted")));
     }
 
+    @Operation(
+        summary = "Get assignment submissions",
+        description = "Retrieve all submissions for an assignment including version history. " +
+                    "Requires INSTRUCTOR role. Used to view and grade student work."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Submissions retrieved successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
     @GetMapping("/assignments/{id}/submissions")
     public ResponseEntity<ApiResponse<List<SubmissionResponse>>> getSubmissions(
@@ -182,6 +482,33 @@ public class AssignmentController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    @Operation(
+        summary = "Get assignment gradebook",
+        description = "Retrieve grading summary for all students on an assignment. Shows scores, submission status, " +
+                    "and evaluation status. Requires INSTRUCTOR role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Gradebook retrieved successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - assignment does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
     @GetMapping("/assignments/{id}/gradebook")
     public ResponseEntity<ApiResponse<List<GradebookEntryResponse>>> getGradebook(

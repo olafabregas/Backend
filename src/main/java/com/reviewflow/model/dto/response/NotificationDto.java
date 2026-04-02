@@ -4,6 +4,7 @@ import com.reviewflow.model.entity.Notification;
 import com.reviewflow.service.HashidService;
 import lombok.Builder;
 import lombok.Value;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 

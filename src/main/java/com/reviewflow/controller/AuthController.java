@@ -22,6 +22,8 @@ import com.reviewflow.service.HashidService;
 import com.reviewflow.service.UserService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -44,12 +46,36 @@ public class AuthController {
     @Value("${app.cookie.secure:false}")
     private boolean cookieSecure;
 
-    @Operation(summary = "Login", description = "Authenticate with email and password. Sets HTTP-only cookies for access and refresh tokens.")
+    @Operation(
+        summary = "Login",
+        description = "Authenticate user with email and password credentials. Sets HTTP-only secure cookies for access and refresh tokens. Implements rate limiting on failed attempts."
+    )
     @ApiResponses({
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Login successful"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid credentials"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "403", description = "Account deactivated"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "429", description = "Too many failed attempts")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Authentication successful, tokens set in cookies",
+            content = @Content(schema = @Schema(implementation = AuthUserResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - missing or invalid email/password",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - invalid email or password",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - account is deactivated",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "429",
+            description = "Too Many Requests - too many failed login attempts, try again later",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
     })
     @PostMapping("/login")
     public ResponseEntity<ApiResponse<AuthUserResponse>> login(
@@ -65,10 +91,21 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(result.user()));
     }
 
-    @Operation(summary = "Refresh token", description = "Issue new access token using refresh cookie. Optionally rotates refresh token.")
+    @Operation(
+        summary = "Refresh access token",
+        description = "Issue new access token using refresh token from cookie. Implements automatic token rotation for enhanced security. Requires valid refresh token in cookie."
+    )
     @ApiResponses({
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Token refreshed"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Invalid or expired refresh token")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Token refreshed successfully, new access token set in cookie",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - refresh token expired or invalid",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
     })
     @PostMapping("/refresh")
     public ResponseEntity<ApiResponse<Map<String, String>>> refresh(
@@ -83,9 +120,22 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Token refreshed")));
     }
 
-    @Operation(summary = "Logout", description = "Revoke refresh token and clear cookies. Requires valid access token.")
-    @ApiResponses(
-            @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Logged out successfully"))
+    @Operation(
+        summary = "Logout",
+        description = "Revoke refresh token and clear authentication cookies. Requires valid access token. Immediately invalidates all active sessions for this user."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Logged out successfully, cookies cleared",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PostMapping("/logout")
     public ResponseEntity<ApiResponse<Map<String, String>>> logout(
             @AuthenticationPrincipal ReviewFlowUserDetails user,
@@ -100,10 +150,21 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Logged out successfully")));
     }
 
-    @Operation(summary = "Current user", description = "Return the authenticated user's profile. Used by frontend on app load.")
+    @Operation(
+        summary = "Get current user profile",
+        description = "Return authenticated user's profile data including name, email, avatar, role, and preferences. Typically called by frontend on app initialization."
+    )
     @ApiResponses({
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "User profile"),
-        @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not authenticated")
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "User profile returned",
+            content = @Content(schema = @Schema(implementation = AuthUserResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
     })
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<AuthUserResponse>> me(@AuthenticationPrincipal ReviewFlowUserDetails user) {
@@ -127,7 +188,22 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
-    @Operation(summary = "Get access token value for WebSocket authentication")
+    @Operation(
+        summary = "Get access token for WebSocket",
+        description = "Extract access token from cookie for WebSocket authentication. WebSocket connections cannot use cookies directly, so this endpoint provides token value for auth header."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Access token returned",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/token")
     public ResponseEntity<ApiResponse<Map<String, String>>> getTokenForWebSocket(
             HttpServletRequest request,

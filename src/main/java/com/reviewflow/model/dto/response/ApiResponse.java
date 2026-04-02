@@ -3,7 +3,8 @@ package com.reviewflow.model.dto.response;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import lombok.Value;
-import java.time.Instant; 
+import java.time.Instant;
+import io.swagger.v3.oas.annotations.media.Schema; 
 
 @Value
 @Builder

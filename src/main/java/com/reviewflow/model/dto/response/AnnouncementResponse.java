@@ -4,6 +4,7 @@ import com.reviewflow.model.enums.AnnouncementTarget;
 import com.reviewflow.model.enums.RecipientType;
 import lombok.Builder;
 import lombok.Value;
+import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.time.Instant;
 

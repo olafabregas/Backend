@@ -12,6 +12,11 @@ import com.reviewflow.security.ReviewFlowUserDetails;
 import com.reviewflow.service.EvaluationService;
 import com.reviewflow.service.SubmissionService;
 import com.reviewflow.service.HashidService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -31,6 +36,7 @@ import static com.reviewflow.controller.EvaluationController.getEvaluationRespon
 @RestController
 @RequestMapping("/api/v1/students/me")
 @RequiredArgsConstructor
+@Tag(name = "Student", description = "Student personal dashboard and submissions")
 public class StudentController {
 
     private final TeamMemberRepository teamMemberRepository;
@@ -39,6 +45,23 @@ public class StudentController {
     private final RubricScoreRepository rubricScoreRepository;
     private final HashidService hashidService;
 
+    @Operation(
+        summary = "Get team invitations",
+        description = "Get all pending team invitations for the authenticated student. " +
+                    "Shows teams the student has been invited to join."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Team invitations retrieved successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/invites")
     @SuppressWarnings("NullableProblems")
     public ResponseEntity<ApiResponse<List<TeamInviteResponse>>> myInvites(
@@ -48,6 +71,23 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    @Operation(
+        summary = "Get my submissions",
+        description = "Get paginated list of all submissions uploaded by the authenticated student. " +
+                    "Includes individual and team submissions. Sorted by uploadedAt descending."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Student submissions retrieved successfully",
+            content = @Content(schema = @Schema(implementation = Page.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/submissions")
     @SuppressWarnings("NullableProblems")
     public ResponseEntity<ApiResponse<Page<SubmissionResponse>>> mySubmissions(
@@ -58,6 +98,23 @@ public class StudentController {
         return ResponseEntity.ok(ApiResponse.ok(page));
     }
 
+    @Operation(
+        summary = "Get my evaluations",
+        description = "Get paginated list of all evaluations for the authenticated student's submissions. " +
+                    "Shows only published evaluations (isDraft=false). Sorted by createdAt descending."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Student evaluations retrieved successfully",
+            content = @Content(schema = @Schema(implementation = Page.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/evaluations")
     @SuppressWarnings("NullableProblems")
     public ResponseEntity<ApiResponse<Page<EvaluationResponse>>> myEvaluations(

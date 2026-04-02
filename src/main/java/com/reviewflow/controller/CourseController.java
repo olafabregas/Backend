@@ -10,6 +10,11 @@ import com.reviewflow.model.entity.Course;
 import com.reviewflow.security.ReviewFlowUserDetails;
 import com.reviewflow.service.CourseService;
 import com.reviewflow.service.HashidService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -29,11 +34,34 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/v1/courses")
 @RequiredArgsConstructor
+@Tag(
+    name = "Courses",
+    description = "Course management endpoints. Supports creating, updating, archiving courses, +" +
+                "and managing course instructors and student enrollments. Most endpoints require " +
+                "ADMIN role except viewing endpoints which allow INSTRUCTOR access."
+)
 public class CourseController {
 
     private final CourseService courseService;
     private final HashidService hashidService;
 
+    @Operation(
+        summary = "List courses",
+        description = "Retrieve paginated list of courses accessible to the authenticated user. " +
+                    "Admins see all courses, instructors see courses they teach, students see enrolled courses."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Courses retrieved successfully",
+            content = @Content(schema = @Schema(implementation = ApiResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping
     public ResponseEntity<ApiResponse<Page<CourseResponse>>> list(
             @AuthenticationPrincipal ReviewFlowUserDetails user,
@@ -50,6 +78,27 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(data));
     }
 
+    @Operation(
+        summary = "Create course",
+        description = "Create new course. Requires ADMIN role. Initializes course with code, name, term, and optional description."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "201",
+            description = "Course created successfully",
+            content = @Content(schema = @Schema(implementation = CourseResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid course data or duplicate code",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
     public ResponseEntity<ApiResponse<CourseResponse>> create(
@@ -61,6 +110,32 @@ public class CourseController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok(toResponse(course)));
     }
 
+    @Operation(
+        summary = "Get course details",
+        description = "Retrieve specific course details by ID. User must have access (admin, instructor, or enrolled student)."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Course details retrieved",
+            content = @Content(schema = @Schema(implementation = CourseResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - no access to this course",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - course does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<CourseResponse>> get(
             @PathVariable String id, 
@@ -70,6 +145,32 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(course)));
     }
 
+    @Operation(
+        summary = "Update course",
+        description = "Update course details (code, name, term, description). Requires ADMIN role. Cannot update archived courses."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Course updated successfully",
+            content = @Content(schema = @Schema(implementation = CourseResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid update data",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - course does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<CourseResponse>> update(
@@ -80,6 +181,27 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(course)));
     }
 
+    @Operation(
+        summary = "Archive course",
+        description = "Archive (soft delete) a course. Archived courses remain in system but hidden from listings. Requires ADMIN role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Course archived successfully",
+            content = @Content(schema = @Schema(implementation = CourseResponse.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - course does not exist",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PatchMapping("/{id}/archive")
     public ResponseEntity<ApiResponse<CourseResponse>> archive(@PathVariable String id) {
@@ -88,6 +210,28 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(toResponse(course)));
     }
 
+    @Operation(
+        summary = "Assign instructor to course",
+        description = "Assign an instructor (user with INSTRUCTOR role) to teach a course. Requires ADMIN role. " +
+                    "An instructor can be assigned to multiple courses."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Instructor assigned successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - instructorId missing or invalid",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/instructors")
     public ResponseEntity<ApiResponse<Map<String, String>>> assignInstructor(
@@ -101,6 +245,27 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Instructor assigned")));
     }
 
+    @Operation(
+        summary = "Remove instructor from course",
+        description = "Remove an instructor from a course. The instructor will no longer be able to access the course. Requires ADMIN role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Instructor removed successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - course or instructor not found",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}/instructors/{userId}")
     public ResponseEntity<ApiResponse<Map<String, String>>> removeInstructor(
@@ -112,6 +277,27 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Instructor removed")));
     }
 
+    @Operation(
+        summary = "Enroll student in course",
+        description = "Enroll a single student in a course. If student is already enrolled, operation succeeds silently. Requires ADMIN role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Student enrolled successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - studentId missing or invalid",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/enroll")
     public ResponseEntity<ApiResponse<Map<String, String>>> enroll(
@@ -125,6 +311,27 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Student enrolled")));
     }
 
+    @Operation(
+        summary = "Bulk enroll students in course",
+        description = "Enroll multiple students (by email) in a course in a single operation. Returns success/failure status for each email. Requires ADMIN role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Bulk enrollment completed, returns status for each email",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "400",
+            description = "Bad Request - invalid request body",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping("/{id}/enroll/bulk")
     public ResponseEntity<ApiResponse<List<Map<String, String>>>> bulkEnroll(
@@ -135,6 +342,27 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(results));
     }
 
+    @Operation(
+        summary = "Unenroll student from course",
+        description = "Remove a student from course enrollment. Student will no longer see course or assignments. Requires ADMIN role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Student unenrolled successfully",
+            content = @Content(schema = @Schema(implementation = Map.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "404",
+            description = "Not Found - course or student not found",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN')")
     @DeleteMapping("/{id}/enroll/{userId}")
     public ResponseEntity<ApiResponse<Map<String, String>>> unenroll(
@@ -146,6 +374,27 @@ public class CourseController {
         return ResponseEntity.ok(ApiResponse.ok(Map.of("message", "Student removed")));
     }
 
+    @Operation(
+        summary = "Get enrolledstudents in course",
+        description = "Retrieve list of all students enrolled in the course with enrollment details. Requires ADMIN or INSTRUCTOR role."
+    )
+    @ApiResponses({
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "200",
+            description = "Students retrieved successfully",
+            content = @Content(schema = @Schema(implementation = List.class))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "401",
+            description = "Unauthorized - authentication required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        ),
+        @io.swagger.v3.oas.annotations.responses.ApiResponse(
+            responseCode = "403",
+            description = "Forbidden - ADMIN or INSTRUCTOR role required",
+            content = @Content(schema = @Schema(ref = "#/components/schemas/ApiErrorResponse"))
+        )
+    })
     @PreAuthorize("hasRole('ADMIN') or hasRole('INSTRUCTOR')")
     @GetMapping("/{id}/students")
     public ResponseEntity<ApiResponse<List<StudentResponse>>> getStudents(
